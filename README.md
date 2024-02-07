@@ -1,6 +1,9 @@
-### README.md for Your Encryption CLI Tool
+### README.md for PP256 CLI Tool and Algorithm
 
-# Encryption CLI Tool
+# PP256 
+## Encryption Algorithm and CLI Tool
+
+![alt text](./assets/logo.png)
 
 This command-line interface (CLI) tool offers a simple yet powerful means to encrypt and decrypt messages using the PP256 encryption algorithm. Designed for educational purposes, it provides insights into the workings of symmetric encryption, including options for Base64 encoding/decoding and SHA256 hashing.
 
