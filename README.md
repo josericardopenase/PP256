@@ -43,16 +43,16 @@ encryption-cli [-b --base64] [-p --password] [-i --input] [-e --encryption] [-d 
 
 ### Examples
 
-Encrypt a message:
+Encrypt a message (Automatically is outputed in base64)
 
 ```
-echo "Hello World" | ./encryption-cli -p mypassword -b
+echo "Hello World" | ./encryption-cli -p mypassword
 ```
 
-Decrypt a message (assuming the encrypted message is Base64 encoded):
+Decrypt a message (You must enable base64 flag and the input will be base64 decoded):
 
 ```
-echo "SGVsbG8gV29ybGQ=" | ./encryption-cli -p mypassword -b -d
+echo "SGVsbG8gV29ybGQ=" | ./encryption-cli -p mypassword -b
 ```
 
 ## Supported Encryption Functions and Digest Algorithms
