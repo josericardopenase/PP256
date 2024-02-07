@@ -1,86 +1,85 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
-
+#include <string.h>
+#include <getopt.h>
+#include "encrypt.h"
 #include "sha256.h"
-#include "hexutils.h"
+#define DEFAULT_ENCRYPTION_METHOD xor
+#define DEFAULT_DIGEST_METHOD SHA256
+#define BUFFER_SIZE 1024
 
-char* addPadding(char* text, int blockSize){
-    char* buffer = calloc(32,sizeof(char));
-    for (int i = 0; i < strlen(text); ++i) *(buffer+i) = *(text+i);
-    for (int i = strlen(text); i < blockSize ; ++i) *(buffer + i) = 0x20;
-    return buffer;
-}
-
-char* xor(char* input, char* key){
-    char* operation = malloc(strlen(input));
-    for (int i = 0; i < strlen(input); ++i) {
-        *(operation + i) = *(input + i) ^ *(key + i);
+char* readInputFromStdin() {
+    char *input = malloc(BUFFER_SIZE);
+    if (!input) {
+        fprintf(stderr, "Error al asignar memoria para la entrada.\n");
+        return NULL;
     }
-    *(operation + 32) = '\0';
-    return operation;
+    if (fgets(input, BUFFER_SIZE, stdin) == NULL) {
+        fprintf(stderr, "Error al leer la entrada.\n");
+        free(input);
+        return NULL;
+    }
+    // Remover el salto de línea al final, si existe
+    input[strcspn(input, "\n")] = 0;
+    return input;
 }
 
-struct {
-    char* (*digestFunction)(char*);
-    char* (*encrypt)(char*, char*);
-    int blockSize;
-} typedef EncryptionSettings;
 
-double getNumberOfBlocks(const char *input, const char *digest_bin);
+int main(int argc, char *argv[]) {
+    char *password = NULL;
+    char *input = NULL;
+    char *encryption = DEFAULT_ENCRYPTION_METHOD;
+    char *digest = DEFAULT_DIGEST_METHOD;
 
-char* sliceArray(char* array, int init, int finish) {
-    if (init > finish) return NULL;
-    int sliceLength = finish - init + 1;
-    char* slice = (char*)malloc((sliceLength + 1) * sizeof(char));
-    if (slice == NULL) return NULL;
-    for (int i = 0; i < sliceLength; i++) slice[i] = array[init + i];
-    slice[sliceLength] = '\0';
-    return slice;
-}
+    int option;
+    // Definir las opciones largas
+    struct option long_options[] = {
+            {"password", required_argument, 0, 'p'},
+            {"input", required_argument, 0, 'i'},
+            {"encryption", required_argument, 0, 'e'},
+            {"digest", required_argument, 0, 'd'},
+            {0, 0, 0, 0}
+    };
 
-char* encrypt(
-        char* input,
-        char* password,
-        EncryptionSettings* settings
-){
-    char* digest = settings->digestFunction(password);
-    char* digest_bin = hexToBin(digest);
-
-    double numberOfBlocks = getNumberOfBlocks(input, digest_bin);
-    if(strlen(input) < strlen(digest_bin)) input = addPadding(input, settings->blockSize);
-    int sizeOfFinalBuffer = settings->blockSize * numberOfBlocks;
-    char* finalBuffer = malloc(sizeOfFinalBuffer);
-
-    for (int i = 0; i < numberOfBlocks; ++i) {
-        int current_offset = (i * (settings->blockSize));
-        char *slice = sliceArray(input, current_offset, current_offset + settings->blockSize);
-        if(strlen(slice) < strlen(digest_bin)) slice = addPadding(slice, settings->blockSize);
-        char* result = settings->encrypt(slice, digest_bin);
-        for (int j = 0; j < settings->blockSize; ++j) {
-            finalBuffer[(i*(settings->blockSize))+j] = result[j];
+    while ((option = getopt_long(argc, argv, "p:i:e:d:", long_options, NULL)) != -1) {
+        switch (option) {
+            case 'p':
+                password = optarg;
+                break;
+            case 'i':
+                input = optarg;
+                break;
+            case 'e':
+                encryption = optarg;
+                break;
+            case 'd':
+                digest = optarg;
+                break;
+            default:
+                printf("Uso: %s [-p --password] [-i --input] [-e --encryption] [-d --digest]\n", argv[0]);
+                return EXIT_FAILURE;
         }
     }
-    *(finalBuffer+sizeOfFinalBuffer)='\0';
-    return finalBuffer;
-}
 
-double getNumberOfBlocks(const char *input, const char *digest_bin) { return ceil((float) strlen(input) / (float)strlen(digest_bin)); }
+    if (!password || !input) {
+        printf("Error: La contraseña y la entrada son requeridas.\n");
+        printf("Uso: %s [-p --password] [-i --input] [-e --encryption] [-d --digest]\n", argv[0]);
+        return EXIT_FAILURE;
+    }
 
-EncryptionSettings* create_encryption_settings(char* (*digestFunction)(char*), char* (*encrypt)(char*, char*), int blockSize){
-    EncryptionSettings* settings = malloc(sizeof(settings));
-    settings->encrypt = encrypt;
-    settings->digestFunction = digestFunction;
-    settings->blockSize = blockSize;
-    return settings;
-}
+    EncryptionSettings* settings = create_encryption_settings(digest, encryption, 32);
+    if (!settings) {
+        printf("Error al crear los ajustes de cifrado.\n");
+        return EXIT_FAILURE;
+    }
 
-int main(){
-    EncryptionSettings* settings = create_encryption_settings(SHA256, xor, 32);
-    char* plaintext="soy el puto amo";
-    char* password = "password";
-    char* encripted = encrypt(plaintext, password,  settings);
-    printf("%s\n", encripted);
-    printf("%s\n", encrypt(encripted, password, settings));
-    return 0;
+    char* encrypted = encrypt(input, password, settings);
+    if (!encrypted) {
+        printf("Error al cifrar el mensaje.\n");
+        return EXIT_FAILURE;
+    }
+    printf("Mensaje cifrado: %s\n", encrypted);
+    free(encrypted);
+
+    return EXIT_SUCCESS;
 }

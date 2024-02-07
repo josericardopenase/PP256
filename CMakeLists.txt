@@ -8,4 +8,6 @@ add_executable(untitled
         hexutils.c
         hexutils.h
         main.c
+        sha256.c
+        encrypt.h
 )
