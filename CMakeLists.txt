@@ -10,4 +10,5 @@ add_executable(untitled
         main.c
         sha256.c
         encrypt.h
+        base64.h
 )

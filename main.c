@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "base64.h"
 #include <getopt.h>
 #include "encrypt.h"
 #include "sha256.h"
@@ -19,7 +20,6 @@ char* readInputFromStdin() {
         free(input);
         return NULL;
     }
-    // Remover el salto de línea al final, si existe
     input[strcspn(input, "\n")] = 0;
     return input;
 }
@@ -38,16 +38,21 @@ int main(int argc, char *argv[]) {
             {"input", required_argument, 0, 'i'},
             {"encryption", required_argument, 0, 'e'},
             {"digest", required_argument, 0, 'd'},
+            {"base64", no_argument, 0, 'b'},
             {0, 0, 0, 0}
     };
 
-    while ((option = getopt_long(argc, argv, "p:i:e:d:", long_options, NULL)) != -1) {
+    int base64 = 0;
+    while ((option = getopt_long(argc, argv, "p:i:e:d:b", long_options, NULL)) != -1) {
         switch (option) {
             case 'p':
                 password = optarg;
                 break;
             case 'i':
                 input = optarg;
+                break;
+            case 'b':
+                base64 = 1;
                 break;
             case 'e':
                 encryption = optarg;
@@ -56,9 +61,15 @@ int main(int argc, char *argv[]) {
                 digest = optarg;
                 break;
             default:
-                printf("Uso: %s [-p --password] [-i --input] [-e --encryption] [-d --digest]\n", argv[0]);
+                printf("Uso: %s[-b --base64] [-p --password] [-i --input] [-e --encryption] [-d --digest]\n", argv[0]);
                 return EXIT_FAILURE;
         }
+    }
+    if (!input) {
+        input = readInputFromStdin();
+        if (!input) return EXIT_FAILURE; // Si falla la lectura de stdin, terminar
+    } else {
+        input = strdup(input);
     }
 
     if (!password || !input) {
@@ -73,13 +84,27 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    if (base64){
+        size_t size;
+        input = base64_decode(input, strlen(input), &size);
+    }
+
     char* encrypted = encrypt(input, password, settings);
     if (!encrypted) {
         printf("Error al cifrar el mensaje.\n");
         return EXIT_FAILURE;
     }
-    printf("Mensaje cifrado: %s\n", encrypted);
+
+    size_t size;
+    char* output = encrypted;
+    if(base64 == 0){
+        output = base64_encode(encrypted, strlen(encrypted), &size);
+    }
+
+    printf("%s", output);
+
     free(encrypted);
+    free(output);
 
     return EXIT_SUCCESS;
 }
